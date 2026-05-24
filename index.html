@@ -10,14 +10,38 @@
     <main id="app">
       <header>
         <h1>Death in the Sea</h1>
-        <p class="subtitle">An interactive memorial built from the IOM Missing Migrants Project data.</p>
+        <p class="subtitle">
+          Depuis 2014, l'Organisation internationale pour les migrations a recensé
+          chaque drame de la traversée méditerranéenne. Chaque point ci-dessous
+          en est un. Les chiffres sont des estimations minimales.
+        </p>
       </header>
+
       <section id="map-section">
-        <div id="map"></div>
+        <div id="map-controls" role="group" aria-label="Filtre par route">
+          <button class="route-btn active" data-route="all">Toutes</button>
+          <button class="route-btn" data-route="Central">Centrale</button>
+          <button class="route-btn" data-route="Western">Western</button>
+          <button class="route-btn" data-route="Eastern">Eastern</button>
+        </div>
+        <div id="map" role="region" aria-label="Carte des incidents migratoires en Méditerranée"></div>
+        <div id="map-summary">
+          <span id="incident-count">— incidents</span>
+          <span id="victim-count">— victimes</span>
+        </div>
+        <div id="map-legend">
+          <div class="legend-item"><span class="dot dot-central"></span>Centrale</div>
+          <div class="legend-item"><span class="dot dot-western"></span>Western</div>
+          <div class="legend-item"><span class="dot dot-eastern"></span>Eastern</div>
+          <div class="legend-item"><span class="dot dot-faded"></span>Localisation imprécise (IOM)</div>
+          <div class="legend-item"><span class="dot dot-corrected"></span>Coordonnée corrigée éditorialement</div>
+        </div>
       </section>
+
       <footer>
         <small>
-          Source: IOM Missing Migrants Project. Figures are a minimum estimate.
+          Source: IOM Missing Migrants Project — données extraites le 2026-05-19.
+          Tous les chiffres sont des estimations minimales : les pertes réelles sont plus élevées.
         </small>
       </footer>
     </main>
