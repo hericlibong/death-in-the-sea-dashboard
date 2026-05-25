@@ -16,9 +16,20 @@ import * as d3 from 'd3';
 
 const PARTIAL_YEAR = 2026;
 
+// Bar color per route filter. "all" uses a neutral muted grey so the bars
+// don't carry a route-specific meaning when no route is selected — the
+// blue is reserved for Central, green for Western, sandy for Eastern,
+// each matching the map circles. 2026 (partial year) keeps the accent
+// red so it is visually distinct regardless of the route filter.
+const BAR_COLOR_BY_ROUTE = {
+  all: '#8a8f98',          // muted grey — neutral aggregate
+  Central: '#5b8dbe',
+  Western: '#7fb069',
+  Eastern: '#d4a373',
+};
+
 const COLORS = {
-  bar: '#5b8dbe',          // central / project blue
-  barPartial: '#c75450',   // accent for partial year
+  barPartial: '#c75450',   // accent for partial year (2026)
   barInactive: '#3a3f47',  // dimmed when another year is selected
   axis: '#8a8f98',
   text: '#e6e6e6',
@@ -56,9 +67,12 @@ export function createTimeline(container, { onYearClick }) {
     .style('opacity', 0);
 
   let currentActiveYear = null;
+  let currentRoute = 'all';
 
-  function render(features, activeYear) {
+  function render(features, activeYear, route = 'all') {
     currentActiveYear = activeYear ?? null;
+    currentRoute = route ?? 'all';
+    const barColor = BAR_COLOR_BY_ROUTE[currentRoute] || BAR_COLOR_BY_ROUTE.all;
 
     // Aggregate victims and incidents by year on the currently visible
     // features (so the route filter is reflected).
@@ -166,7 +180,7 @@ export function createTimeline(container, { onYearClick }) {
         if (currentActiveYear != null && d.year !== currentActiveYear) {
           return COLORS.barInactive;
         }
-        return d.year === PARTIAL_YEAR ? COLORS.barPartial : COLORS.bar;
+        return d.year === PARTIAL_YEAR ? COLORS.barPartial : barColor;
       });
 
     bars.exit().remove();

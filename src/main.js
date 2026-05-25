@@ -76,7 +76,7 @@ function applyFilters() {
     });
   }
   if (timeline) {
-    timeline.update(routeFilteredFeatures(), state.year);
+    timeline.update(routeFilteredFeatures(), state.year, state.route);
   }
   updateSummary(visible);
 
@@ -87,6 +87,7 @@ function applyFilters() {
 
 async function main() {
   fc = await loadIncidents();
+  document.body.dataset.route = state.route;  // initial 'all'
 
   map = new mapboxgl.Map({
     container: 'map',
@@ -193,7 +194,7 @@ async function main() {
   });
   // Initial render before map.on('load') fires so the timeline doesn't
   // flash empty.
-  timeline.update(routeFilteredFeatures(), state.year);
+  timeline.update(routeFilteredFeatures(), state.year, state.route);
 
   // Year clear button.
   const clearBtn = document.getElementById('timeline-clear');
@@ -204,12 +205,15 @@ async function main() {
     });
   }
 
-  // Route filter buttons.
+  // Route filter buttons. Also mirror the active route onto a data
+  // attribute on <body> so CSS can theme other components (counters,
+  // future widgets) to match the selected route's color.
   document.querySelectorAll('.route-btn').forEach((btn) => {
     btn.addEventListener('click', () => {
       document.querySelectorAll('.route-btn').forEach((b) => b.classList.remove('active'));
       btn.classList.add('active');
       state.route = btn.dataset.route;
+      document.body.dataset.route = state.route;
       applyFilters();
     });
   });
@@ -230,14 +234,14 @@ async function main() {
       // timeline to recompute their layout.
       setTimeout(() => {
         if (map) map.resize();
-        if (timeline) timeline.update(routeFilteredFeatures(), state.year);
+        if (timeline) timeline.update(routeFilteredFeatures(), state.year, state.route);
       }, 280);
     });
   }
 
   // Keep the timeline width responsive on window resize.
   window.addEventListener('resize', () => {
-    if (timeline) timeline.update(routeFilteredFeatures(), state.year);
+    if (timeline) timeline.update(routeFilteredFeatures(), state.year, state.route);
     if (map) map.resize();
   });
 }

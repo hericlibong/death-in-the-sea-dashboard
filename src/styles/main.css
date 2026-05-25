@@ -89,6 +89,7 @@ header {
   font-weight: 600;
   font-variant-numeric: tabular-nums;
   color: var(--fg);
+  transition: color 0.2s ease;
 }
 
 .counter-label {
@@ -97,7 +98,20 @@ header {
   text-transform: uppercase;
   letter-spacing: 0.06em;
   margin-top: 0.15rem;
+  transition: color 0.2s ease;
 }
+
+/* Counters take the active route color, so the header tells you at a
+   glance which route the figures correspond to. Labels use the same
+   color in a muted variant. */
+body[data-route="Central"] .counter-num   { color: var(--central); }
+body[data-route="Central"] .counter-label { color: var(--central); opacity: 0.75; }
+
+body[data-route="Western"] .counter-num   { color: var(--western); }
+body[data-route="Western"] .counter-label { color: var(--western); opacity: 0.75; }
+
+body[data-route="Eastern"] .counter-num   { color: var(--eastern); }
+body[data-route="Eastern"] .counter-label { color: var(--eastern); opacity: 0.75; }
 
 /* ----- Toolbar (filters + timeline toggle) ----- */
 #toolbar {
@@ -126,16 +140,54 @@ header {
   font-size: 0.88rem;
   border-radius: 3px;
   cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
   transition: background 0.15s, border-color 0.15s;
 }
 
+/* Colored dot prefix per route — mirrors the map legend and the
+   timeline bar color so the visual code is consistent everywhere. */
+.route-btn::before {
+  content: '';
+  display: inline-block;
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: var(--muted);
+  flex-shrink: 0;
+}
+
+.route-btn[data-route="Central"]::before { background: var(--central); }
+.route-btn[data-route="Western"]::before { background: var(--western); }
+.route-btn[data-route="Eastern"]::before { background: var(--eastern); }
+
 .route-btn:hover { border-color: var(--fg); }
 
+/* Active state: the whole button takes the route color (filled),
+   text switches to dark for contrast, and the dot is hidden since
+   the button itself now carries the color. */
 .route-btn.active {
-  background: var(--panel);
-  border-color: var(--fg);
+  background: var(--muted);
+  border-color: var(--muted);
+  color: var(--bg);
   font-weight: 600;
 }
+
+.route-btn[data-route="Central"].active {
+  background: var(--central);
+  border-color: var(--central);
+}
+.route-btn[data-route="Western"].active {
+  background: var(--western);
+  border-color: var(--western);
+}
+.route-btn[data-route="Eastern"].active {
+  background: var(--eastern);
+  border-color: var(--eastern);
+}
+
+.route-btn.active::before { display: none; }
 
 #timeline-toggle {
   background: var(--panel);
