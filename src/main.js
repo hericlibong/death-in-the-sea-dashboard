@@ -1,6 +1,8 @@
 import mapboxgl from 'mapbox-gl';
 import 'mapbox-gl/dist/mapbox-gl.css';
 
+import { createTimeline } from './timeline.js';
+
 // Mapbox GL JS v3 requires an access token at initialization, even when
 // the style is loaded from a third-party CDN. The token is a public
 // browser-side key, scoped via the Mapbox account. It lives in
@@ -22,10 +24,38 @@ const ROUTE_COLOR = {
   Mixed: '#9b87b3',
 };
 
+// Single source of truth for the filter state, composed of route + year.
+// applyFilters() recomputes the visible set on every change and propagates
+// it to both the map source and the timeline.
+const state = {
+  route: 'all',
+  year: null,
+};
+
+let fc = null;     // full feature collection (loaded once)
+let map = null;
+let timeline = null;
+
 async function loadIncidents() {
   const res = await fetch('./data/incidents.geojson');
   if (!res.ok) throw new Error(`Failed to load incidents.geojson: ${res.status}`);
   return res.json();
+}
+
+function visibleFeatures() {
+  return fc.features.filter((f) => {
+    if (state.route !== 'all' && f.properties.route !== state.route) return false;
+    if (state.year !== null && f.properties.year !== state.year) return false;
+    return true;
+  });
+}
+
+// Features visible under the ROUTE filter only — used to feed the timeline
+// so its bars reflect the current route but stay readable when a year is
+// also selected.
+function routeFilteredFeatures() {
+  if (state.route === 'all') return fc.features;
+  return fc.features.filter((f) => f.properties.route === state.route);
 }
 
 function updateSummary(features) {
@@ -37,21 +67,28 @@ function updateSummary(features) {
     `${v.toLocaleString('fr-FR')} victimes`;
 }
 
-function applyFilter(map, fc, route) {
-  const filtered = route === 'all'
-    ? fc.features
-    : fc.features.filter((f) => f.properties.route === route);
-  map.getSource('incidents').setData({
-    type: 'FeatureCollection',
-    features: filtered,
-  });
-  updateSummary(filtered);
+function applyFilters() {
+  const visible = visibleFeatures();
+  if (map && map.getSource('incidents')) {
+    map.getSource('incidents').setData({
+      type: 'FeatureCollection',
+      features: visible,
+    });
+  }
+  if (timeline) {
+    timeline.update(routeFilteredFeatures(), state.year);
+  }
+  updateSummary(visible);
+
+  // Reflect the year-clear button visibility/state.
+  const clearBtn = document.getElementById('timeline-clear');
+  if (clearBtn) clearBtn.disabled = state.year === null;
 }
 
 async function main() {
-  const fc = await loadIncidents();
+  fc = await loadIncidents();
 
-  const map = new mapboxgl.Map({
+  map = new mapboxgl.Map({
     container: 'map',
     style: STYLE_URL,
     center: [15, 37],   // Central Mediterranean
@@ -142,21 +179,66 @@ async function main() {
       popup.remove();
     });
 
-    updateSummary(fc.features);
+    // First render of summary + timeline once the map source exists.
+    applyFilters();
   });
 
-  // Wire up the route filter buttons.
+  // Build the timeline. The bars reflect the route filter; clicking a bar
+  // sets state.year and re-applies all filters (so the map narrows down).
+  timeline = createTimeline(document.getElementById('timeline'), {
+    onYearClick: (year) => {
+      state.year = year;
+      applyFilters();
+    },
+  });
+  // Initial render before map.on('load') fires so the timeline doesn't
+  // flash empty.
+  timeline.update(routeFilteredFeatures(), state.year);
+
+  // Year clear button.
+  const clearBtn = document.getElementById('timeline-clear');
+  if (clearBtn) {
+    clearBtn.addEventListener('click', () => {
+      state.year = null;
+      applyFilters();
+    });
+  }
+
+  // Route filter buttons.
   document.querySelectorAll('.route-btn').forEach((btn) => {
     btn.addEventListener('click', () => {
       document.querySelectorAll('.route-btn').forEach((b) => b.classList.remove('active'));
       btn.classList.add('active');
-      const route = btn.dataset.route;
-      if (map.isStyleLoaded()) {
-        applyFilter(map, fc, route);
-      } else {
-        map.once('load', () => applyFilter(map, fc, route));
-      }
+      state.route = btn.dataset.route;
+      applyFilters();
     });
+  });
+
+  // Timeline drawer toggle. When the drawer opens or closes the map
+  // container changes size — Mapbox needs an explicit resize() after the
+  // CSS transition completes, otherwise the tiles render at the old size.
+  const toggleBtn = document.getElementById('timeline-toggle');
+  const panel = document.getElementById('timeline-panel');
+  if (toggleBtn && panel) {
+    toggleBtn.addEventListener('click', () => {
+      const isCollapsed = panel.classList.toggle('collapsed');
+      const opened = !isCollapsed;
+      toggleBtn.setAttribute('aria-expanded', String(opened));
+      toggleBtn.querySelector('.toggle-label').textContent =
+        opened ? 'Masquer la frise' : 'Voir la frise temporelle';
+      // Wait for the CSS transition (250ms) before telling the map and
+      // timeline to recompute their layout.
+      setTimeout(() => {
+        if (map) map.resize();
+        if (timeline) timeline.update(routeFilteredFeatures(), state.year);
+      }, 280);
+    });
+  }
+
+  // Keep the timeline width responsive on window resize.
+  window.addEventListener('resize', () => {
+    if (timeline) timeline.update(routeFilteredFeatures(), state.year);
+    if (map) map.resize();
   });
 }
 
