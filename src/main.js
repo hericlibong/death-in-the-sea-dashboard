@@ -67,6 +67,18 @@ function updateSummary(features) {
     `${v.toLocaleString('fr-FR')} victimes`;
 }
 
+function updateScopeLabel() {
+  const el = document.getElementById('scope-label');
+  if (!el) return;
+  if (state.year === null) {
+    el.textContent = 'Total 2014–2026';
+  } else if (state.year === 2026) {
+    el.textContent = 'Année 2026 (partielle)';
+  } else {
+    el.textContent = `Année ${state.year}`;
+  }
+}
+
 function applyFilters() {
   const visible = visibleFeatures();
   if (map && map.getSource('incidents')) {
@@ -79,6 +91,7 @@ function applyFilters() {
     timeline.update(routeFilteredFeatures(), state.year, state.route);
   }
   updateSummary(visible);
+  updateScopeLabel();
 
   // Reflect the year-clear button visibility/state.
   const clearBtn = document.getElementById('timeline-clear');
