@@ -373,14 +373,110 @@ body[data-route="Eastern"] #scope-label { color: var(--eastern); opacity: 0.85; 
   color: var(--fg);
   font-family: inherit;
   font-size: 0.85rem;
-  padding: 0.5rem 0.75rem;
-  border-radius: 3px;
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.5);
+  padding: 0;
+  border-radius: 4px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.55);
+  overflow: hidden;
+  min-width: 240px;
+  max-width: 320px;
 }
 
 .incident-popup .mapboxgl-popup-tip {
   border-top-color: var(--panel);
   border-bottom-color: var(--panel);
+}
+
+/* Tooltip content layout — header / location / body / footer. */
+.tt-inner {
+  display: flex;
+  flex-direction: column;
+}
+
+.tt-header {
+  padding: 0.65rem 0.85rem 0.55rem;
+  border-bottom: 1px solid #2a2e35;
+}
+
+.tt-date {
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--fg);
+  line-height: 1.2;
+}
+
+.tt-route-line {
+  margin-top: 0.25rem;
+  font-size: 0.8rem;
+  color: var(--muted);
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  flex-wrap: wrap;
+}
+
+.tt-route {
+  display: inline-block;
+  padding: 0.05rem 0.45rem;
+  border-radius: 2px;
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  color: var(--bg);
+}
+
+.tt-route[data-route="Central"] { background: var(--central); }
+.tt-route[data-route="Western"] { background: var(--western); }
+.tt-route[data-route="Eastern"] { background: var(--eastern); }
+.tt-route[data-route="Mixed"]   { background: #9b87b3; }
+
+.tt-location {
+  padding: 0.4rem 0.85rem;
+  font-style: italic;
+  font-size: 0.82rem;
+  color: var(--muted);
+  border-bottom: 1px solid #2a2e35;
+  line-height: 1.35;
+}
+
+.tt-body {
+  padding: 0.55rem 0.85rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+}
+
+.tt-row { font-size: 0.85rem; line-height: 1.35; }
+.tt-row strong { color: var(--fg); font-weight: 600; }
+
+.tt-detail {
+  color: var(--muted);
+  font-size: 0.78rem;
+  margin-left: 0.15rem;
+}
+
+.tt-presumed {
+  color: var(--muted);
+  font-style: italic;
+  font-size: 0.78rem;
+}
+
+.tt-muted { color: var(--muted); }
+
+.tt-footer {
+  padding: 0.45rem 0.85rem 0.55rem;
+  border-top: 1px solid #2a2e35;
+  font-size: 0.72rem;
+  color: var(--muted);
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  background: rgba(0, 0, 0, 0.18);
+}
+
+.tt-warn {
+  color: var(--accent);
+  font-weight: 500;
 }
 
 /* ----- Footer ----- */

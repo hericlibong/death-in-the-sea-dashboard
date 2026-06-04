@@ -2,6 +2,12 @@ import mapboxgl from 'mapbox-gl';
 import 'mapbox-gl/dist/mapbox-gl.css';
 
 import { createTimeline } from './timeline.js';
+import {
+  localizeCountry,
+  localizeOrigin,
+  formatDate,
+  sourceQualityLabel,
+} from './labels.js';
 
 // Mapbox GL JS v3 requires an access token at initialization, even when
 // the style is loaded from a third-party CDN. The token is a public
@@ -65,6 +71,76 @@ function updateSummary(features) {
     `${n.toLocaleString('fr-FR')} incidents`;
   document.getElementById('victim-count').textContent =
     `${v.toLocaleString('fr-FR')} victimes`;
+}
+
+function escapeHTML(s) {
+  return String(s)
+    .replaceAll('&', '&amp;')
+    .replaceAll('<', '&lt;')
+    .replaceAll('>', '&gt;');
+}
+
+function buildTooltipHTML(p) {
+  const date = formatDate(p.date) || 'Date inconnue';
+  const country = localizeCountry(p.country);
+  const routeLabel = p.route || 'route inconnue';
+  const location = p.location_unspecified
+    ? null
+    : (p.location ? escapeHTML(p.location) : null);
+
+  // Victim breakdown: split dead vs missing only when missing > 0.
+  const dead = Number(p.dead) || 0;
+  const missing = Number(p.missing) || 0;
+  const total = dead + missing;
+  let victimsLine;
+  if (total <= 1) {
+    victimsLine = `<strong>${total} victime</strong>`;
+  } else if (missing > 0 && dead > 0) {
+    victimsLine = `<strong>${total} victimes</strong> <span class="tt-detail">(${dead} morts, ${missing} disparus)</span>`;
+  } else {
+    victimsLine = `<strong>${total} victimes</strong>`;
+  }
+
+  const causeText = p.cause ? ` — ${escapeHTML(p.cause)}` : '';
+
+  // We deliberately do NOT surface the origin field in the tooltip.
+  // The IOM data on origin is too often presumed, mixed, or unknown,
+  // and labelling it "Origine: <country>" in the singular would suggest
+  // a precision (a single nationality for all victims) that the dataset
+  // does not support. The data stays in the GeoJSON for future use
+  // (anchors A8 / A11 may need it later in a more careful framing).
+
+  // Quality + warnings (footer).
+  const quality = sourceQualityLabel(p.source_quality);
+  const warnings = [];
+  if (p.location_unspecified) warnings.push('Localisation imprécise');
+  if (p.coord_corrected) warnings.push('Coordonnée corrigée éditorialement');
+  const footerParts = [];
+  if (quality) footerParts.push(`<span>Source IOM — ${quality}</span>`);
+  for (const w of warnings) {
+    footerParts.push(`<span class="tt-warn">⚠ ${w}</span>`);
+  }
+  const footer = footerParts.length
+    ? `<div class="tt-footer">${footerParts.join('')}</div>`
+    : '';
+
+  const routeChip = `<span class="tt-route" data-route="${escapeHTML(routeLabel)}">${escapeHTML(routeLabel)}</span>`;
+  const countryFragment = country ? ` · ${escapeHTML(country)}` : '';
+  const locationFragment = location ? `<div class="tt-location">${location}</div>` : '';
+
+  return `
+    <div class="tt-inner">
+      <div class="tt-header">
+        <div class="tt-date">${date}</div>
+        <div class="tt-route-line">${routeChip}${countryFragment}</div>
+      </div>
+      ${locationFragment}
+      <div class="tt-body">
+        <div class="tt-row">${victimsLine}${causeText}</div>
+      </div>
+      ${footer}
+    </div>
+  `;
 }
 
 function updateScopeLabel() {
@@ -178,15 +254,7 @@ async function main() {
     });
     map.on('mouseenter', 'incident-circles', (e) => {
       map.getCanvas().style.cursor = 'pointer';
-      const p = e.features[0].properties;
-      const html = `
-        <strong>${p.date ?? 'date inconnue'}</strong><br/>
-        Route: ${p.route ?? 'non précisée'}<br/>
-        ${p.victims} victime${p.victims > 1 ? 's' : ''}
-        ${p.location_unspecified ? '<br/><em>Localisation imprécise</em>' : ''}
-        ${p.coord_corrected ? '<br/><em>Coordonnée corrigée</em>' : ''}
-      `;
-      popup.setLngLat(e.lngLat).setHTML(html).addTo(map);
+      popup.setLngLat(e.lngLat).setHTML(buildTooltipHTML(e.features[0].properties)).addTo(map);
     });
     map.on('mouseleave', 'incident-circles', () => {
       map.getCanvas().style.cursor = '';
