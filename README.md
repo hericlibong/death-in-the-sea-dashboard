@@ -8,7 +8,7 @@ Tableau de bord interactif sur les morts et disparitions de personnes migrantes 
 
 Ce dépôt contient **uniquement le tableau de bord** (interface front-end). Le pipeline de nettoyage des données, la documentation méthodologique complète et les ancres éditoriales qui structurent le projet vivent dans le dépôt principal `DEATH_IN_THE_SEA` (non public).
 
-Le dataset embarqué ici (`public/data/incidents.geojson`) couvre les **3 033 incidents** enregistrés par l'OIM sur les trois routes méditerranéennes (Centrale, Western, Eastern) entre janvier 2014 et mai 2026 — instantané du **19 mai 2026**.
+Le dataset embarqué ici (`public/data/incidents.geojson`) couvre les **3 114 incidents** enregistrés par l'OIM sur les trois routes méditerranéennes (Centrale, Western, Eastern) entre janvier 2014 et août 2026 — instantané du **31 août 2026**.
 
 ## Aperçu
 
