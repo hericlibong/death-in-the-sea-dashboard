@@ -1,7 +1,7 @@
 import mapboxgl from 'mapbox-gl';
 import 'mapbox-gl/dist/mapbox-gl.css';
 
-import { createTimeline } from './timeline.js';
+import { createTimeline, MONTH_FULL } from './timeline.js';
 import {
   localizeCountry,
   localizeOrigin,
@@ -30,17 +30,28 @@ const ROUTE_COLOR = {
   Mixed: '#9b87b3',
 };
 
-// Single source of truth for the filter state, composed of route + year.
-// applyFilters() recomputes the visible set on every change and propagates
-// it to both the map source and the timeline.
+// Single source of truth for the filter state, composed of route + year +
+// month. applyFilters() recomputes the visible set on every change and
+// propagates it to both the map source and the timeline.
+// `month` is 0-11 and only meaningful once a year is selected.
 const state = {
   route: 'all',
   year: null,
+  month: null,
 };
 
 let fc = null;     // full feature collection (loaded once)
 let map = null;
 let timeline = null;
+// Latest incident date present in the snapshot, as { year, month }. Anything
+// after it is absent from the data, not absent from reality — the timeline
+// needs this to tell "no victims" apart from "not covered".
+let lastCovered = null;
+
+function monthOf(feature) {
+  const d = feature.properties.date;
+  return d ? Number(d.slice(5, 7)) - 1 : null;
+}
 
 async function loadIncidents() {
   const res = await fetch('./data/incidents.geojson');
@@ -52,6 +63,7 @@ function visibleFeatures() {
   return fc.features.filter((f) => {
     if (state.route !== 'all' && f.properties.route !== state.route) return false;
     if (state.year !== null && f.properties.year !== state.year) return false;
+    if (state.month !== null && monthOf(f) !== state.month) return false;
     return true;
   });
 }
@@ -143,16 +155,56 @@ function buildTooltipHTML(p) {
   `;
 }
 
+// The "partial" marker is derived from the data, never hardcoded: it is
+// whichever year/month holds the latest recorded incident.
 function updateScopeLabel() {
   const el = document.getElementById('scope-label');
   if (!el) return;
   if (state.year === null) {
-    el.textContent = 'Total 2014–2026';
-  } else if (state.year === 2026) {
-    el.textContent = 'Année 2026 (partielle)';
+    el.textContent = lastCovered
+      ? `Total 2014–${lastCovered.year}`
+      : 'Total';
+  } else if (state.month !== null) {
+    const partial = lastCovered
+      && state.year === lastCovered.year
+      && state.month === lastCovered.month;
+    el.textContent =
+      `${MONTH_FULL[state.month]} ${state.year}${partial ? ' (partiel)' : ''}`;
   } else {
-    el.textContent = `Année ${state.year}`;
+    const partial = lastCovered && state.year === lastCovered.year;
+    el.textContent = `Année ${state.year}${partial ? ' (partielle)' : ''}`;
   }
+}
+
+// Panel title, hint and back button all reflect the current drill level.
+function updateTimelineChrome() {
+  const title = document.getElementById('timeline-title');
+  const hint = document.getElementById('timeline-hint');
+  const clearBtn = document.getElementById('timeline-clear');
+
+  if (title) {
+    title.textContent = state.year === null
+      ? 'Victimes par année'
+      : `Victimes par mois — ${state.year}`;
+  }
+  if (hint) {
+    hint.textContent = state.year === null
+      ? 'Cliquez sur une année pour voir ses mois.'
+      : 'Cliquez sur un mois pour filtrer la carte.';
+  }
+  if (clearBtn) {
+    clearBtn.textContent = state.year === null ? 'Toutes années' : '← Toutes les années';
+    clearBtn.disabled = state.year === null;
+  }
+}
+
+function refreshTimeline() {
+  if (!timeline) return;
+  timeline.update(routeFilteredFeatures(), {
+    year: state.year,
+    month: state.month,
+    route: state.route,
+  });
 }
 
 function applyFilters() {
@@ -163,20 +215,25 @@ function applyFilters() {
       features: visible,
     });
   }
-  if (timeline) {
-    timeline.update(routeFilteredFeatures(), state.year, state.route);
-  }
+  refreshTimeline();
   updateSummary(visible);
   updateScopeLabel();
-
-  // Reflect the year-clear button visibility/state.
-  const clearBtn = document.getElementById('timeline-clear');
-  if (clearBtn) clearBtn.disabled = state.year === null;
+  updateTimelineChrome();
 }
 
 async function main() {
   fc = await loadIncidents();
   document.body.dataset.route = state.route;  // initial 'all'
+
+  // Latest incident date in the snapshot — drives every "partial" and
+  // "not covered" marker downstream. ISO dates compare correctly as strings.
+  const maxDate = fc.features.reduce(
+    (acc, f) => (f.properties.date && f.properties.date > acc ? f.properties.date : acc),
+    '',
+  );
+  if (maxDate) {
+    lastCovered = { year: Number(maxDate.slice(0, 4)), month: Number(maxDate.slice(5, 7)) - 1 };
+  }
 
   map = new mapboxgl.Map({
     container: 'map',
@@ -265,23 +322,32 @@ async function main() {
     applyFilters();
   });
 
-  // Build the timeline. The bars reflect the route filter; clicking a bar
-  // sets state.year and re-applies all filters (so the map narrows down).
+  // Build the timeline. The bars reflect the route filter. Clicking a year
+  // drills into its twelve months without narrowing the map — only a click
+  // on a month restricts the map further.
   timeline = createTimeline(document.getElementById('timeline'), {
     onYearClick: (year) => {
       state.year = year;
+      state.month = null;
       applyFilters();
     },
+    onMonthClick: (month) => {
+      state.month = month;
+      applyFilters();
+    },
+    maxDate,
   });
   // Initial render before map.on('load') fires so the timeline doesn't
   // flash empty.
-  timeline.update(routeFilteredFeatures(), state.year, state.route);
+  refreshTimeline();
+  updateTimelineChrome();
 
-  // Year clear button.
+  // Back to the year level (also clears the month).
   const clearBtn = document.getElementById('timeline-clear');
   if (clearBtn) {
     clearBtn.addEventListener('click', () => {
       state.year = null;
+      state.month = null;
       applyFilters();
     });
   }
@@ -315,14 +381,14 @@ async function main() {
       // timeline to recompute their layout.
       setTimeout(() => {
         if (map) map.resize();
-        if (timeline) timeline.update(routeFilteredFeatures(), state.year, state.route);
+        refreshTimeline();
       }, 280);
     });
   }
 
   // Keep the timeline width responsive on window resize.
   window.addEventListener('resize', () => {
-    if (timeline) timeline.update(routeFilteredFeatures(), state.year, state.route);
+    refreshTimeline();
     if (map) map.resize();
   });
 }
